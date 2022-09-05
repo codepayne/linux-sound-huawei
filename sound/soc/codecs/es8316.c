@@ -86,7 +86,7 @@ static const struct soc_enum dacpol =
 	SOC_ENUM_SINGLE(ES8316_DAC_SET1, 0, 4, dacpol_txt);
 
 static const struct snd_kcontrol_new es8316_snd_controls[] = {
-	SOC_DOUBLE_TLV("Headphone Playback Volume", ES8316_CPHP_ICAL_VOL,
+	SOC_DOUBLE_TLV("Master Playback Volume", ES8316_CPHP_ICAL_VOL,
 		       4, 0, 3, 1, hpout_vol_tlv),
 	SOC_DOUBLE_TLV("Headphone Mixer Volume", ES8316_HPMIX_VOL,
 		       4, 0, 11, 0, hpmixer_gain_tlv),
@@ -520,7 +520,7 @@ static int es8316_mute(struct snd_soc_dai *dai, int mute, int direction)
 }
 
 #define ES8316_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE | \
-			SNDRV_PCM_FMTBIT_S24_LE)
+			SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
 
 static const struct snd_soc_dai_ops es8316_ops = {
 	.startup = es8316_pcm_startup,
@@ -717,6 +717,41 @@ static int es8316_set_jack(struct snd_soc_component *component,
 	return 0;
 }
 
+#ifdef CONFIG_PM
+
+static int es8316_suspend(struct snd_soc_component *component)
+{
+	struct es8316_priv *es8316 = snd_soc_component_get_drvdata(component);
+	regcache_cache_only(es8316->regmap, true);
+
+	return 0;
+}
+
+static int es8316_resume(struct snd_soc_component *component)
+{
+	struct es8316_priv *es8316 = snd_soc_component_get_drvdata(component);
+
+	regcache_cache_only(es8316->regmap, false);
+	/* Reset codec and enable current state machine */
+	snd_soc_component_write(component, ES8316_RESET, 0x3f);
+	usleep_range(5000, 5500);
+	snd_soc_component_write(component, ES8316_RESET, ES8316_RESET_CSM_ON);
+	msleep(30);
+
+	snd_soc_component_write(component, ES8316_SYS_VMIDSEL, 0xff);
+
+	snd_soc_component_write(component, ES8316_CLKMGR_ADCOSR, 0x32);
+
+	regcache_mark_dirty(es8316->regmap);
+	regcache_sync(es8316->regmap);
+
+	return 0;
+}
+#else
+#define es8316_suspend NULL
+#define es8316_resume NULL
+#endif
+
 static int es8316_probe(struct snd_soc_component *component)
 {
 	struct es8316_priv *es8316 = snd_soc_component_get_drvdata(component);
@@ -767,26 +802,6 @@ static void es8316_remove(struct snd_soc_component *component)
 	clk_disable_unprepare(es8316->mclk);
 }
 
-static int es8316_resume(struct snd_soc_component *component)
-{
-	struct es8316_priv *es8316 = snd_soc_component_get_drvdata(component);
-
-	regcache_cache_only(es8316->regmap, false);
-	regcache_sync(es8316->regmap);
-
-	return 0;
-}
-
-static int es8316_suspend(struct snd_soc_component *component)
-{
-	struct es8316_priv *es8316 = snd_soc_component_get_drvdata(component);
-
-	regcache_cache_only(es8316->regmap, true);
-	regcache_mark_dirty(es8316->regmap);
-
-	return 0;
-}
-
 static const struct snd_soc_component_driver soc_component_dev_es8316 = {
 	.probe			= es8316_probe,
 	.remove			= es8316_remove,
@@ -794,6 +809,8 @@ static const struct snd_soc_component_driver soc_component_dev_es8316 = {
 	.suspend		= es8316_suspend,
 	.set_jack		= es8316_set_jack,
 	.controls		= es8316_snd_controls,
+	.suspend		= es8316_suspend,
+	.resume		= es8316_resume,
 	.num_controls		= ARRAY_SIZE(es8316_snd_controls),
 	.dapm_widgets		= es8316_dapm_widgets,
 	.num_dapm_widgets	= ARRAY_SIZE(es8316_dapm_widgets),
@@ -805,6 +822,9 @@ static const struct snd_soc_component_driver soc_component_dev_es8316 = {
 
 static const struct regmap_range es8316_volatile_ranges[] = {
 	regmap_reg_range(ES8316_GPIO_FLAG, ES8316_GPIO_FLAG),
+	regmap_reg_range(ES8316_RESET, ES8316_RESET),
+	regmap_reg_range(ES8316_SYS_VMIDSEL,ES8316_SYS_VMIDSEL),
+	regmap_reg_range(ES8316_CLKMGR_ADCOSR,ES8316_CLKMGR_ADCOSR),
 };
 
 static const struct regmap_access_table es8316_volatile_table = {

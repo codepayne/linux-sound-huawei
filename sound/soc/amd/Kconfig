@@ -54,6 +54,19 @@ config SND_SOC_AMD_RV_RT5682_MACH
 	help
 	 This option enables machine driver for RT5682 and MAX9835.
 
+config SND_SOC_AMD_ACP3x_ES8336_MACH
+	tristate "AMD ACP3x support for ES8336"
+	select SND_SOC_ACPI if ACPI
+	select SND_SOC_ES8316
+	depends on ACPI
+	depends on I2C
+	depends on SND_SOC_AMD_ACP3x
+	help
+	 This option enables machine driver for ACP3x platform
+	 using es8336 codec.
+	 Say m if you have such a device.
+	 If unsure select "N".
+	 
 config SND_SOC_AMD_RENOIR
 	tristate "AMD Audio Coprocessor - Renoir support"
 	select SND_AMD_ACP_CONFIG
