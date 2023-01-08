@@ -294,6 +294,14 @@ static const struct dmi_system_id acp3x_es8336_dmi_table[] = {
 		},
 		.driver_data = &acp3x_es8336,
 	},
+		{
+		.matches = {
+			DMI_EXACT_MATCH(DMI_BOARD_VENDOR, "HUAWEI"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "HVY-WXX9"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_VERSION, "M1040"),
+		},
+		.driver_data = &acp3x_es8336,
+	},
 	{}
 };
 
