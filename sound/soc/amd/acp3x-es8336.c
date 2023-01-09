@@ -143,7 +143,7 @@ static const struct snd_soc_dapm_route acp3x_es8336_audio_map[] = {
 	 */
 	{"Speaker", NULL, "HPOL"},
 	{"Speaker", NULL, "HPOR"},
-	{"MIC1", NULL, "Headset Mic"},
+	{"MIC2", NULL, "Headset Mic"},
 	{"Speaker", NULL, "Speaker Power"},
 };
 
