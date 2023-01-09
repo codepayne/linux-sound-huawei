@@ -305,7 +305,6 @@ static struct snd_soc_dai_link acp3x_dai_es8336[] = {
 		.name = "amd-acp3x-es8336-dai",
 		.stream_name = "ES8336 HiFi Play",
 		.stop_dma_first = 1,
-		.nonatomic = true,
 		.dpcm_capture = 1,
 		.dpcm_playback = 1,
 		.init = acp3x_es8336_init,
