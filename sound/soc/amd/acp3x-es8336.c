@@ -35,6 +35,7 @@ struct acp3x_es8336_private {
 	struct acp3x_platform_info machine;
 	struct device *codec_dev;
 	struct gpio_desc *gpio_speakers;
+	struct gpio_desc *gpio_headphone;
 	bool speaker_en;
 };
 
@@ -154,27 +155,77 @@ static const struct snd_kcontrol_new acp3x_es8336_controls[] = {
 };
 
 static const struct acpi_gpio_params enable_gpio0 = { 0, 0, true };
+static const struct acpi_gpio_params enable_gpio1 = { 1, 0, true };
 
+/* This one works for me */
 static const struct acpi_gpio_mapping acpi_speakers_enable_gpio0[] = {
 	{ "speakers-enable-gpios", &enable_gpio0, 1, ACPI_GPIO_QUIRK_ONLY_GPIOIO },
 	{ }
 };
 
+static const struct acpi_gpio_mapping acpi_speakers_enable_gpio1[] = {
+	{ "speakers-enable-gpios", &enable_gpio1, 1, ACPI_GPIO_QUIRK_ONLY_GPIOIO },
+};
+
+/* Lets try this one */
+static const struct acpi_gpio_mapping acpi_enable_both_gpios[] = {
+	{ "speakers-enable-gpios", &enable_gpio0, 1, ACPI_GPIO_QUIRK_ONLY_GPIOIO },
+	{ "headphone-enable-gpios", &enable_gpio1, 1, ACPI_GPIO_QUIRK_ONLY_GPIOIO },
+	{ }
+};
+
+static const struct acpi_gpio_mapping acpi_enable_both_gpios_rev_order[] = {
+	{ "speakers-enable-gpios", &enable_gpio1, 1, ACPI_GPIO_QUIRK_ONLY_GPIOIO },
+	{ "headphone-enable-gpios", &enable_gpio0, 1, ACPI_GPIO_QUIRK_ONLY_GPIOIO },
+	{ }
+};
+/*
+  static int acp3x_es8336_speaker_power_event(struct snd_soc_dapm_widget *w,
+  struct snd_kcontrol *kcontrol, int event)
+  {
+  struct acp3x_es8336_private *priv = snd_soc_card_get_drvdata(w->dapm->card);
+
+  if (priv->speaker_en == !SND_SOC_DAPM_EVENT_ON(event))
+  return 0;
+
+  priv->speaker_en = !SND_SOC_DAPM_EVENT_ON(event);
+
+  if (SND_SOC_DAPM_EVENT_ON(event))
+  msleep(70);
+
+  gpiod_set_value_cansleep(priv->gpio_speakers, priv->speaker_en);
+
+  return 0;
+  }
+*/
 static int acp3x_es8336_speaker_power_event(struct snd_soc_dapm_widget *w,
                                             struct snd_kcontrol *kcontrol, int event)
 {
-	struct acp3x_es8336_private *priv = snd_soc_card_get_drvdata(w->dapm->card);
+	struct snd_soc_card *card = w->dapm->card;
+	struct acp3x_es8336_private *priv = snd_soc_card_get_drvdata(card);
 
-	if (priv->speaker_en == !SND_SOC_DAPM_EVENT_ON(event))
+	dev_info(card->dev, "entered speaker power event = %d\n", event);
+	if (priv->speaker_en == !SND_SOC_DAPM_EVENT_ON(event)) {
+		dev_info(card->dev, "speaker power event 1\n");
 		return 0;
+	}
 
 	priv->speaker_en = !SND_SOC_DAPM_EVENT_ON(event);
 
-	if (SND_SOC_DAPM_EVENT_ON(event))
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
+		dev_info(card->dev, "speaker power event 2\n");
 		msleep(70);
+	}
 
 	gpiod_set_value_cansleep(priv->gpio_speakers, priv->speaker_en);
 
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
+		dev_info(card->dev, "speaker power event 3\n");
+		msleep(70);
+	}
+
+	gpiod_set_value_cansleep(priv->gpio_headphone, priv->speaker_en);
+	dev_info(card->dev, "speaker power event 4\n");
 	return 0;
 }
 
@@ -215,7 +266,7 @@ static int acp3x_es8336_init(struct snd_soc_pcm_runtime *runtime)
 
 	snd_soc_component_set_jack(codec, &es8336_jack, NULL);
 
-	ret = devm_acpi_dev_add_driver_gpios(codec->dev, acpi_speakers_enable_gpio0);
+	ret = devm_acpi_dev_add_driver_gpios(codec->dev, acpi_enable_both_gpios);
 	if (ret)
 		dev_warn(codec->dev, "failed to add speaker gpio\n");
 
@@ -224,6 +275,13 @@ static int acp3x_es8336_init(struct snd_soc_pcm_runtime *runtime)
 	if (IS_ERR(priv->gpio_speakers)) {
 		dev_err(codec->dev, "could not get speakers-enable GPIO\n");
 		return PTR_ERR(priv->gpio_speakers);
+	}
+
+	dev_info(codec->dev, "enabling headphone GPIO\n");
+	priv->gpio_headphone = gpiod_get_optional(codec->dev, "headphone-enable", GPIOD_OUT_LOW);
+	if (IS_ERR(priv->gpio_headphone)) {
+		dev_err(codec->dev, "could not get headphone-enable GPIO\n");
+		return PTR_ERR(priv->gpio_headphone);
 	}
 
 	return 0;
