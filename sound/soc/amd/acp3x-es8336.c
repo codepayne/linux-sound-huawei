@@ -57,7 +57,7 @@ static const struct snd_pcm_hw_constraint_list constraints_channels = {
 	.list = channels,
 	.mask = 0,
 };
-#define ES8336_MCLK_FREQ (48000 * 256)
+#define ES8336_MCLK_FREQ (48000 * 1000)
 
 static int acp3x_es8336_codec_startup(struct snd_pcm_substream *substream)
 {
