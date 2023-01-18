@@ -28,9 +28,9 @@
  * MCLK/LRCK ratios, but we also add ratio 400, which is commonly used on
  * Intel Cherry Trail platforms (19.2MHz MCLK, 48kHz LRCK).
  */
-#define NR_SUPPORTED_MCLK_LRCK_RATIOS 6
+#define NR_SUPPORTED_MCLK_LRCK_RATIOS 7
 static const unsigned int supported_mclk_lrck_ratios[] = {
-	256, 384, 400, 512, 768, 1024
+	256, 384, 400, 512, 768, 1000, 1024
 };
 
 struct es8316_priv {
@@ -479,26 +479,33 @@ static int es8316_pcm_hw_params(struct snd_pcm_substream *substream,
 	if (i == NR_SUPPORTED_MCLK_LRCK_RATIOS)
 		return -EINVAL;
 	lrck_divider = es8316->sysclk / params_rate(params);
-	bclk_divider = lrck_divider / 4;
-	switch (params_format(params)) {
-	case SNDRV_PCM_FORMAT_S16_LE:
-		wordlen = ES8316_SERDATA2_LEN_16;
-		bclk_divider /= 16;
-		break;
-	case SNDRV_PCM_FORMAT_S20_3LE:
-		wordlen = ES8316_SERDATA2_LEN_20;
-		bclk_divider /= 20;
-		break;
-	case SNDRV_PCM_FORMAT_S24_LE:
-		wordlen = ES8316_SERDATA2_LEN_24;
-		bclk_divider /= 24;
-		break;
-	case SNDRV_PCM_FORMAT_S32_LE:
+	if (lrck_divider == 1000) {
 		wordlen = ES8316_SERDATA2_LEN_32;
-		bclk_divider /= 32;
-		break;
-	default:
-		return -EINVAL;
+		bclk_divider = 10;
+		dev_info(component->dev, "Using blck div = %d, wordlen = %d\n", bclk_divider, wordlen);
+	}
+	else {
+		bclk_divider = lrck_divider / 4;
+		switch (params_format(params)) {
+		case SNDRV_PCM_FORMAT_S16_LE:
+			wordlen = ES8316_SERDATA2_LEN_16;
+			bclk_divider /= 16;
+			break;
+		case SNDRV_PCM_FORMAT_S20_3LE:
+			wordlen = ES8316_SERDATA2_LEN_20;
+			bclk_divider /= 20;
+			break;
+		case SNDRV_PCM_FORMAT_S24_LE:
+			wordlen = ES8316_SERDATA2_LEN_24;
+			bclk_divider /= 24;
+			break;
+		case SNDRV_PCM_FORMAT_S32_LE:
+			wordlen = ES8316_SERDATA2_LEN_32;
+			bclk_divider /= 32;
+			break;
+		default:
+			return -EINVAL;
+		}
 	}
 
 	snd_soc_component_update_bits(component, ES8316_SERDATA_DAC,

@@ -43,7 +43,7 @@ static const unsigned int channels[] = {
 };
 
 static const unsigned int rates[] = {
-	8000, 11025, 16000, 22050, 32000, 44100, 48000, 64000, 88200, 96000
+	48000
 };
 
 static const struct snd_pcm_hw_constraint_list constraints_rates = {
