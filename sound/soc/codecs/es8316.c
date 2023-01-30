@@ -480,9 +480,11 @@ static int es8316_pcm_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	lrck_divider = es8316->sysclk / params_rate(params);
 	if (lrck_divider == 1000) {
+		snd_soc_component_update_bits(component, 0x01, 0x80, 0x80);
 		wordlen = ES8316_SERDATA2_LEN_32;
-		bclk_divider = 10;
-		dev_info(component->dev, "Using blck div = %d, wordlen = %d\n", bclk_divider, wordlen);
+		bclk_divider = 5;
+		lrck_divider = 500;
+		dev_info(component->dev, "Using lrck div = %d, blck div = %d, wordlen = %d\n", lrck_divider, bclk_divider, wordlen);
 	}
 	else {
 		bclk_divider = lrck_divider / 4;
