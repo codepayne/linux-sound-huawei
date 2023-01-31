@@ -742,6 +742,8 @@ static int es8316_resume(struct snd_soc_component *component)
 
 	snd_soc_component_write(component, ES8316_CLKMGR_ADCOSR, 0x32);
 
+	msleep(5000);
+	mb();
 	regcache_mark_dirty(es8316->regmap);
 	regcache_sync(es8316->regmap);
 
