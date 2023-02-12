@@ -466,10 +466,12 @@ static int es8316_pcm_hw_params(struct snd_pcm_substream *substream,
 	u8 bclk_divider;
 	u16 lrck_divider;
 	int i;
+	int mclk_div = 1;
+	unsigned int ratio;
 
 	/* Validate supported sample rates that are autodetected from MCLK */
 	for (i = 0; i < NR_SUPPORTED_MCLK_LRCK_RATIOS; i++) {
-		const unsigned int ratio = supported_mclk_lrck_ratios[i];
+		ratio = supported_mclk_lrck_ratios[i];
 
 		if (es8316->sysclk % ratio != 0)
 			continue;
@@ -478,37 +480,38 @@ static int es8316_pcm_hw_params(struct snd_pcm_substream *substream,
 	}
 	if (i == NR_SUPPORTED_MCLK_LRCK_RATIOS)
 		return -EINVAL;
-	lrck_divider = es8316->sysclk / params_rate(params);
-	if (lrck_divider == 1000) {
+
+	if (ratio == 1000) {
 		snd_soc_component_update_bits(component, 0x01, 0x80, 0x80);
+		mclk_div = 2;
+		dev_info(component->dev, "Activating MCLK div by 2\n");
+	}
+
+	lrck_divider = es8316->sysclk / params_rate(params) / mclk_div;
+	bclk_divider = lrck_divider / 4;
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+		wordlen = ES8316_SERDATA2_LEN_16;
+		bclk_divider /= 16;
+		break;
+	case SNDRV_PCM_FORMAT_S20_3LE:
+		wordlen = ES8316_SERDATA2_LEN_20;
+		bclk_divider /= 20;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+		wordlen = ES8316_SERDATA2_LEN_24;
+		bclk_divider /= 24;
+		break;
+	case SNDRV_PCM_FORMAT_S32_LE:
 		wordlen = ES8316_SERDATA2_LEN_32;
-		bclk_divider = 5;
-		lrck_divider = 500;
-		dev_info(component->dev, "Using lrck div = %d, blck div = %d, wordlen = %d\n", lrck_divider, bclk_divider, wordlen);
+		bclk_divider /= 32;
+		break;
+	default:
+		return -EINVAL;
 	}
-	else {
-		bclk_divider = lrck_divider / 4;
-		switch (params_format(params)) {
-		case SNDRV_PCM_FORMAT_S16_LE:
-			wordlen = ES8316_SERDATA2_LEN_16;
-			bclk_divider /= 16;
-			break;
-		case SNDRV_PCM_FORMAT_S20_3LE:
-			wordlen = ES8316_SERDATA2_LEN_20;
-			bclk_divider /= 20;
-			break;
-		case SNDRV_PCM_FORMAT_S24_LE:
-			wordlen = ES8316_SERDATA2_LEN_24;
-			bclk_divider /= 24;
-			break;
-		case SNDRV_PCM_FORMAT_S32_LE:
-			wordlen = ES8316_SERDATA2_LEN_32;
-			bclk_divider /= 32;
-			break;
-		default:
-			return -EINVAL;
-		}
-	}
+
+	dev_info(component->dev, "Using lrck div = %d, blck div = %d, wordlen = %d\n", lrck_divider, bclk_divider, wordlen);
+
 
 	snd_soc_component_update_bits(component, ES8316_SERDATA_DAC,
 			    ES8316_SERDATA2_LEN_MASK, wordlen);
